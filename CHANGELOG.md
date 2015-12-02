@@ -1,6 +1,7 @@
 master
 ------
 
+* No longer publicize support for Rails 3.2
 * Delete previous build output on application boot instead of on process exit.
   [#308]
 
