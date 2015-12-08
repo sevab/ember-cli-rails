@@ -26,24 +26,12 @@ module EmberCli
       @log ||= rails_root.join("log", "ember-#{app_name}.#{environment}.log")
     end
 
+    def apps
+      @apps ||= ember_cli_root.join("apps").tap(&:mkpath)
+    end
+
     def dist
-      @dist ||= ember_cli_root.join("apps", app_name).tap(&:mkpath)
-    end
-
-    def assets
-      @assets ||= ember_cli_root.join("assets").tap(&:mkpath)
-    end
-
-    def app_assets
-      @app_assets ||= assets.join(app_name)
-    end
-
-    def applications
-      @applications ||= rails_root.join("public", "_apps").tap(&:mkpath)
-    end
-
-    def gemfile
-      @gemfile ||= root.join("Gemfile")
+      @dist ||= apps.join(app_name).tap(&:mkpath)
     end
 
     def package_json_file
@@ -95,12 +83,6 @@ module EmberCli
 
     def npm
       @npm ||= app_options.fetch(:npm_path) { configuration.npm_path }
-    end
-
-    def bundler
-      @bundler ||= app_options.fetch(:bundler_path) do
-        configuration.bundler_path
-      end
     end
 
     private

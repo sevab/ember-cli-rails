@@ -41,6 +41,17 @@ describe EmberCli::PathSet do
     end
   end
 
+  describe "#apps" do
+    it "depends on the app name" do
+      app = build_app
+
+      path_set = build_path_set(app: app)
+
+      expect(path_set.apps).to exist
+      expect(path_set.apps).to eq ember_cli_root.join("apps")
+    end
+  end
+
   describe "#dist" do
     it "depends on the app name" do
       app = build_app(name: "foo")
@@ -49,44 +60,6 @@ describe EmberCli::PathSet do
 
       expect(path_set.dist).to exist
       expect(path_set.dist).to eq ember_cli_root.join("apps", "foo")
-    end
-  end
-
-  describe "#assets" do
-    it "is a child of #ember_cli_root" do
-      path_set = build_path_set
-
-      expect(path_set.assets).to exist
-      expect(path_set.assets).to eq ember_cli_root.join("assets")
-    end
-  end
-
-  describe "#app_assets" do
-    it "is a child of #assets" do
-      app = double(name: "bar")
-      path_set = build_path_set(app: app)
-
-      expect(path_set.app_assets).
-        to eq ember_cli_root.join("assets").join("bar")
-    end
-  end
-
-  describe "#applications" do
-    it "is a child of #rails_root" do
-      path_set = build_path_set
-
-      expect(path_set.applications).to exist
-      expect(path_set.applications).to eq rails_root.join("public", "_apps")
-    end
-  end
-
-  describe "#gemfile" do
-    it "is a child of #root" do
-      app = build_app(name: "foo")
-
-      path_set = build_path_set(app: app)
-
-      expect(path_set.gemfile).to eq rails_root.join("foo", "Gemfile")
     end
   end
 
@@ -168,24 +141,6 @@ describe EmberCli::PathSet do
       path_set = build_path_set(configuration: configuration)
 
       expect(path_set.npm).to eq "npm-path"
-    end
-  end
-
-  describe "#bundler" do
-    it "can be overridden" do
-      app = build_app(options: { bundler_path: "bundler-path" })
-
-      path_set = build_path_set(app: app)
-
-      expect(path_set.bundler).to eq "bundler-path"
-    end
-
-    it "can be configured" do
-      configuration = double(bundler_path: "bundler-path")
-
-      path_set = build_path_set(configuration: configuration)
-
-      expect(path_set.bundler).to eq "bundler-path"
     end
   end
 

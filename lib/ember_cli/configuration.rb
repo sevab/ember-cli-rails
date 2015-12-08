@@ -6,7 +6,6 @@ module EmberCli
 
     def app(name, **options)
       app = App.new(name, options)
-      app.sprockets.register!
       apps.store(name, app)
     end
 
@@ -20,10 +19,6 @@ module EmberCli
 
     def npm_path
       @npm_path ||= Helpers.which("npm")
-    end
-
-    def bundler_path
-      @bundler_path ||= Helpers.which("bundler")
     end
 
     attr_accessor :watcher

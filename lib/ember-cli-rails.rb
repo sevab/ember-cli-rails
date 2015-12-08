@@ -34,31 +34,20 @@ module EmberCli
     ENV["SKIP_EMBER"].present?
   end
 
-  def enable!
-    @enabled ||= begin
-      Rails.configuration.assets.paths << root.join("assets").to_s
-      cleanup
-      true
-    end
-  end
-
   def install_dependencies!
-    enable!
     each_app(&:install_dependencies)
   end
 
   def test!
-    enable!
     each_app(&:test)
   end
 
   def compile!
-    enable!
     each_app(&:compile)
   end
 
   def root
-    @root ||= tmp.join("ember-cli-#{uid}")
+    @root ||= Rails.root.join("tmp", "ember-cli")
   end
 
   def env
@@ -69,27 +58,7 @@ module EmberCli
 
   private
 
-  def cleanup
-    previous_builds.each do |path|
-      FileUtils.rm_rf(path)
-    end
-  end
-
-  def previous_builds
-    Pathname.glob(tmp.join("ember-cli-*"))
-  end
-
-  def tmp
-    Rails.root.join("tmp")
-  end
-
-  def uid
-    @uid ||= SecureRandom.uuid
-  end
-
   def each_app
     apps.each { |_, app| yield app }
   end
 end
-
-EmberCLI = EmberCli

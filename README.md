@@ -11,7 +11,7 @@ EmberCLI-Rails is designed to give you the best of both worlds:
   applications and your API from a single domain
 * Write truly end-to-end integration tests, exercising your application's entire
   stack through JavaScript-enabled Capybara tests
-* Deploy your entire suite of applications with a single `git push`
+* Deploy your entire suite of applications to Heroku with a single `git push`
 
 **EmberCLI-Rails Supports EmberCLI 1.13.x and later.**
 
@@ -85,19 +85,19 @@ Next, install the [ember-cli-rails-addon][addon]:
 
 ```bash
 $ cd path/to/frontend
-$ npm install --save-dev ember-cli-rails-addon
+$ ember install ember-cli-rails-addon
 ```
 
 Be sure that the addon's [`MAJOR` and `MINOR` version][semver] matches the gem's
 `MAJOR` and `MINOR` versions.
 
-For instance, if you're using the `0.5.x` version of the gem, specify
-`~> 0.5.0` in your Ember app's `package.json`:
+For instance, if you're using the `1.0.x` version of the gem, specify
+`~> 1.0.0` in your Ember app's `package.json`:
 
 ```json
 {
   "devDependencies": {
-    "ember-cli-rails-addon": "~> 0.5.0"
+    "ember-cli-rails-addon": "~> 1.0.0"
   }
 }
 ```
@@ -127,211 +127,14 @@ In the above example, `params[:ember_app] == :frontend`.
 * `controller` - Defaults to `"ember_cli/ember"`
 * `action` - Defaults to `"index"`
 
-You should now be able to boot your Rails application, navigate to the `root`
-route, and see your EmberCLI app!
+Finally, install your Ember application's dependencies:
 
-## Configuring the Ember controller
-
-By default, routes defined by `ember_app` will be rendered with the internal
-`EmberCli::EmberController`. The `EmberCli::EmberController` renders the Ember
-application's `index.html` and injects the Rails-generated CSRF tags into the
-`<head>`.
-
-To override this behavior, specify the `controller` and `action` options:
-
-```rb
-# config/routes
-
-Rails.application.routes.draw do
-  mount_ember_app :frontend, to: "/", controller: "application", action: "index"
-end
+```bash
+$ rake ember:install
 ```
 
-To serve the EmberCLI generated `index.html`, use the `render_ember_app`
-helper in your view:
-
-```erb
-<!-- app/views/application/index.html.erb -->
-<%= render_ember_app :frontend %>
-```
-
-To inject markup into page, pass in a block that accepts the `head`, and
-(optionally) the `body`:
-
-```erb
-<!-- app/views/application/index.html.erb -->
-<%= render_ember_app :frontend do |head| %>
-  <% head.append do %>
-    <%= csrf_meta_tags %>
-  <% end %>
-<% end %>
-```
-
-When serving the EmberCLI generated `index.html`, don't use Rails' layout HTML:
-
-```rb
-# app/controllers/application.rb
-class ApplicationController < ActionController::Base
-  def index
-    EmberCli.build("my-app")
-
-    render layout: false
-  end
-end
-```
-
-### Rendering the EmberCLI generated JS and CSS
-
-In addition to rendering the EmberCLI generated `index.html`, you can inject the
-`<script>` and `<link>` tags into your Rails generated views:
-
-```erb
-<!-- app/views/application/index.html.erb -->
-<%= include_ember_script_tags :frontend %>
-<%= include_ember_stylesheet_tags :frontend %>
-```
-
-**NOTE**
-
-These helpers are only available for Rails versions `>= 4.0`.
-
-### Multiple Ember CLI apps
-
-In the initializer you may specify multiple Ember CLI apps, each of which can be
-referenced with the view helper independently. You'd accomplish this like so:
-
-```ruby
-EmberCLI.configure do |c|
-  c.app :frontend
-  c.app :admin_panel, path: "/somewhere/else"
-end
-```
-
-Rendering Ember applications at routes other than `/` requires additional setup
-to avoid an Ember `UnrecognizedURLError`.
-
-For instance, if you had Ember applications named  `:frontend` and
-`:admin_panel` and you wanted to serve them at `/frontend` and `/admin_panel`,
-you would set up the following Rails routes:
-
-```rb
-# /config/routes.rb
-Rails.application.routes.draw do
-  mount_ember_app :frontend, to: "/frontend"
-  mount_ember_app :admin_panel, to: "/admin_panel"
-end
-```
-
-You must modify each Ember app's `baseURL` to point to the correct route:
-
-```javascript
-// app/frontend/config/environment.js
-
-module.exports = function(environment) {
-  var ENV = {
-    modulePrefix: 'frontend',
-    environment: environment,
-    baseURL: '/frontend', // originally '/'
-    ...
-  }
-}
-
-// app/admin_panel/config/environment.js
-
-module.exports = function(environment) {
-  var ENV = {
-    modulePrefix: 'admin_panel',
-    environment: environment,
-    baseURL: '/admin_panel',  // originally '/'
-    ...
-  }
-}
-```
-
-## CSRF Tokens
-
-Your Rails controllers, by default, are expecting a valid authenticity token to be submitted with non-`GET` requests.
-Without it you'll receive a `422 Unprocessable Entity` error, specifically: `ActionController::InvalidAuthenticityToken`.
-
-In order to add that token to your requests, you need to add into your template:
-
-```erb
-<!-- app/views/application/index.html.erb -->
-<%= render_ember_app :frontend do |head| %>
-  <% head.append do %>
-    <%= csrf_meta_tags %>
-  <% end %>
-<% end %>
-```
-
-The default `EmberCli::EmberController` and its accompanying view handle this
-for you by default.
-
-However, if you specify your own controller, make sure to append CSRF tags to
-your view's `<head>`.
-
-The [ember-cli-rails-addon][addon] addon will inject an initializer into your
-app to set outgoing requests' `X-CSRF-TOKEN` header to the value injected by
-Rails.
-
-### Integrating with Rake
-
-EmberCLI Rails exposes the `ember:test` Rake task to execute Ember's test suite.
-
-If you're using Rake to run your test suite, make sure to configure your test
-task to depend on `ember:test`.
-
-For example, to configure a bare `rake` command to run both RSpec and Ember test
-suites, configure the `default` task to depend on both `spec` and `ember:test`.
-
-```rb
-task default: [:spec, "ember:test"]
-```
-
-## Serving from multi-process servers in development
-
-If you're using a multi-process server ([Puma], [Unicorn], etc.) in development,
-make sure it's configured to run a single worker process.
-
-Without restricting the server to a single process, [it is possible for multiple
-EmberCLI runners to clobber each others' work][#94].
-
-[Puma]: https://github.com/puma/puma
-[Unicorn]: https://rubygems.org/gems/unicorn
-[#94]: https://github.com/thoughtbot/ember-cli-rails/issues/94#issuecomment-77627453
-
-## Enabling LiveReload
-
-In order to get LiveReload up and running with Ember CLI Rails, you can install
-[guard](https://github.com/guard/guard) and
-[guard-livereload](https://github.com/guard/guard-livereload) gems, run `guard
-init` and then add the following to your `Guardfile`.
-
-```ruby
-guard "livereload" do
-  # ...
-  watch %r{your-appname/app/\w+/.+\.(js|hbs|html|css|<other-extensions>)}
-  # ...
-end
-```
-
-This tells Guard to watch your Ember CLI app for any changes to the JavaScript,
-Handlebars, HTML, or CSS files within `app` path. Take note that other
-extensions can be added to the line (such as `coffee` for CoffeeScript) to
-watch them for changes as well.
-
-*NOTE:* Ember CLI creates symlinks in `your-appname/tmp` directory, which cannot
- be handled properly by Guard. This might lead to performance issues on some
- platforms (most notably on OSX), as well as warnings being printed by latest
- versions of Guard. As a work-around, one might use
- [`directories`](https://github.com/guard/guard/wiki/Guardfile-DSL---Configuring-Guard#directories)
- option, explicitly specifying directories to watch, e.g. adding the following
- to the `Guardfile`.
-
-```ruby
-# also add directories that need to be watched by other guard plugins
-directories %w[app config lib spec your-appname/app]
-```
+Boot your Rails application, navigate to `"/"`, and view your EmberCLI
+application!
 
 ## Heroku
 
@@ -353,109 +156,226 @@ You should be ready to deploy.
 
 The generator will disable Rails' JavaScript compression by declaring:
 
-```rb
-config.assets.js_compressor = nil
-```
-
-This is recommended, but might not work for projects that have both Asset
-Pipeline and EmberCLI generated JavaScript.
-
-To reverse this change, reconfigure Sprockets to use the `uglifier` gem:
-
-```rb
-config.assets.js_compressor = :uglifier
-```
-
 **NOTE** Run the generator each time you introduce additional EmberCLI
 applications into the project.
 
 [buildpack]: https://devcenter.heroku.com/articles/using-multiple-buildpacks-for-an-app#adding-a-buildpack
 
-## Capistrano
+## Overriding the default controller
 
-To deploy an EmberCLI-Rails application with Capistrano, make sure your
-EmberCLI app's `package.json` file includes the `bower` package as a development
-dependency:
+By default, routes defined by `ember_app` will be rendered with the internal
+`EmberCli::EmberController`. The `EmberCli::EmberController` renders the Ember
+application's `index.html` and injects the Rails-generated CSRF tags into the
+`<head>`.
 
-```json
-{
-  "devDependencies": {
-    "bower": "*"
-  }
-}
-```
+To override this behavior, you can specify [any of Rails' routing options]
+[route-options].
 
-## Experiencing Slow Build/Deploy Times?
-Remove `ember-cli-uglify` from your `package.json` file, and run
-`npm remove ember-cli-uglify`. This will improve your build/deploy
-time by about 10 minutes.
+For the sake of this example, override the `controller` and `action` options:
 
-The reason build/deploy times were slow is because ember uglified the JS and
-then added the files to the asset pipeline. Rails would then try and uglify
-the JS again, and this would be considerably slower than normal.
+```rb
+# config/routes
 
-See also the note on [Javascript minification](#javascript-minification)
-
-## JavaScript minification
-
-When pre-compiling assets in production, you will want to
-ensure that you are not minifying your JavaScript twice: once with EmberCLI's
-build tools and once with the Asset Pipeline. Repeated minification is wasteful
-and can increase deployment times exponentially.
-
-You can either disable minification in your EmberCLI application's
-`ember-cli-build.js`:
-
-```javascript
-/* global require, module */
-var EmberApp = require('ember-cli/lib/broccoli/ember-app');
-
-module.exports = function(defaults) {
-  var app = new EmberApp({
-    minifyJS: false,
-  });
-
-  // ...
-};
-```
-
-or in your Rails application's `config/environments/production.rb`:
-
-```ruby
-Rails.application.configure do
-  config.assets.js_compressor = nil
+Rails.application.routes.draw do
+  mount_ember_app :frontend, to: "/", controller: "application", action: "index"
 end
 ```
 
-## Additional Information
+[route-options]: http://api.rubyonrails.org/classes/ActionDispatch/Routing/Mapper/Base.html#method-i-match
 
-When running in the development environment, Ember CLI Rails runs `ember build`
-with the `--output-path` and `--watch` flags on. The `--watch` flag tells
-Ember CLI to watch for file system events and rebuild when an Ember CLI file is
-changed. The `--output-path` flag specifies where the distribution files will
-be put. Ember CLI Rails does some fancy stuff to get it into your asset path
-without polluting your git history. Note that for this to work, you must have
-`config.consider_all_requests_local = true` set in
-`config/environments/development.rb`, otherwise the middleware responsible for
-building Ember CLI will not be enabled.
+To inject the EmberCLI generated `index.html`, use the `render_ember_app`
+helper in your view:
 
-Alternatively, if you want to override the default behavior in any given Rails
-environment, you can manually set the `config.use_ember_middleware` and
-`config.use_ember_live_recompilation` flags in the environment-specific config
-file.
+```erb
+<!-- app/views/application/index.html.erb -->
+<%= render_ember_app :frontend %>
+```
 
-### `ASSET_HOST`
+To inject additional markup, pass in a block that accepts the
+`head`, and (optionally) the `body`:
 
-Used by [the addon][addon] during fingerprinting.
+```erb
+<!-- app/views/application/index.html.erb -->
+<%= render_ember_app :frontend do |head| %>
+  <% head.append do %>
+    <%= csrf_meta_tags %>
+  <% end %>
+<% end %>
+```
 
-When compiling an Ember app named `"frontend"` from within Rails,
-the addon will prepend the generated asset paths with:
+When serving the EmberCLI generated `index.html`, make sure you disable Rails'
+layout HTML, since EmberCLI generates a fully-formed HTML document:
 
-      ${ASSET_HOST}/assets/frontend/
+```rb
+# app/controllers/application.rb
+class ApplicationController < ActionController::Base
+  def index
+    EmberCli.build("my-app")
 
-### `CDN_HOST`
+    render layout: false
+  end
+end
+```
 
-Behaves the same way as `ASSET_HOST`, acting as a fallback.
+### Mounting the Ember applications
+
+Rendering Ember applications from routes other than `/` requires additional
+configuration.
+
+Consider a scenario where you had Ember applications named `frontend` and
+`admin_panel`, served from `/` and `/admin_panel` respectively.
+
+First, specify the Ember applications in the initializer:
+
+```ruby
+EmberCli.configure do |c|
+  c.app :frontend
+  c.app :admin_panel, path: "path/to/admin_ember_app"
+end
+```
+
+Next, mount the applications alongside the rest of Rails' routes:
+
+```rb
+# /config/routes.rb
+Rails.application.routes.draw do
+  mount_ember_app :frontend, to: "/"
+  mount_ember_app :admin_panel, to: "/admin_panel"
+end
+```
+
+Then set each Ember application's `baseURL` to the mount point:
+
+```javascript
+// frontend/config/environment.js
+
+module.exports = function(environment) {
+  var ENV = {
+    modulePrefix: 'frontend',
+    environment: environment,
+    baseURL: '/',
+    // ...
+  }
+};
+
+// path/to/admin_ember_app/config/environment.js
+
+module.exports = function(environment) {
+  var ENV = {
+    modulePrefix: 'admin_panel',
+    environment: environment,
+    baseURL: '/admin_panel',  // originally '/'
+    // ...
+  }
+};
+```
+
+Finally, configure EmberCLI's fingerprinting to prepend the mount point to the
+application's assets:
+
+```js
+// frontend/ember-cli-build.js
+
+module.exports = function(defaults) {
+  var app = new EmberApp(defaults, {
+    fingerprint: {
+      // matches the `/` mount point
+      prepend: 'https://cdn.example.com/',
+    }
+  });
+};
+
+
+// path/to/admin_ember_app/ember-cli-build.js
+
+module.exports = function(defaults) {
+  var app = new EmberApp(defaults, {
+    fingerprint: {
+      // matches the `/admin_panel` mount point
+      prepend: 'https://cdn.example.com/admin_panel/',
+    }
+  });
+};
+
+```
+
+## CSRF Tokens
+
+Your Rails controllers, by default, expect a valid authenticity token to
+be submitted along with non-`GET` requests.
+
+Without the authenticity token, requests will respond with
+`422 Unprocessable Entity` errors (specifically
+`ActionController::InvalidAuthenticityToken`).
+
+To add the necessary tokens to requests, inject the `csrf_meta_tags` into
+the template:
+
+```erb
+<!-- app/views/application/index.html.erb -->
+<%= render_ember_app :frontend do |head| %>
+  <% head.append do %>
+    <%= csrf_meta_tags %>
+  <% end %>
+<% end %>
+```
+
+The default `EmberCli::EmberController` and the default view handle behave like
+this by default.
+
+If an Ember application is mounted with another controller, it should append
+the CSRF tags to its view's `<head>`.
+
+[ember-cli-rails-addon][addon] configures your Ember application to make HTTP
+requests with the injected CSRF tokens in the `X-CSRF-TOKEN` header.
+
+### Integrating with Rake
+
+EmberCLI Rails exposes several useful rake tasks.
+
+**`ember:install`**
+
+Install the Ember applications' dependencies.
+
+**`ember:compile`**
+
+Compile the Ember applications.
+
+**`ember:test`**
+
+Execute Ember's test suite.
+
+If you're using Rake to run the test suite, make sure to configure your test
+task to depend on `ember:test`.
+
+For example, to configure a bare `rake` command to run both RSpec and Ember test
+suites, configure the `default` task to depend on both `spec` and `ember:test`.
+
+```rb
+task default: [:spec, "ember:test"]
+```
+
+### Rendering the EmberCLI generated JS and CSS
+
+Rendering EmberCLI applications with `render_ember_app` is the recommended,
+actively supported method of serving EmberCLI applications.
+
+For integration with Sprockets, use the [`ember-cli-rails-sprockets`
+gem][ember-cli-rails-sprockets].
+
+[ember-cli-rails-sprockets]: https://github.com/thoughtbot/ember-cli-rails-sprockets
+
+## Serving from multi-process servers in development
+
+If you're using a multi-process server ([Puma], [Unicorn], etc.) in development,
+make sure it's configured to run a single worker process.
+
+Without restricting the server to a single process, [it is possible for multiple
+EmberCLI runners to clobber each others' work][#94].
+
+[Puma]: https://github.com/puma/puma
+[Unicorn]: https://rubygems.org/gems/unicorn
+[#94]: https://github.com/thoughtbot/ember-cli-rails/issues/94#issuecomment-77627453
 
 ### `RAILS_ENV`
 
@@ -483,47 +403,15 @@ if (environment === 'development') {
 
 [ember-cli-mirage]: http://ember-cli-mirage.com/docs/latest/
 
-### `SKIP_EMBER`
-
-To disable asset compilation entirely, set an environment variable
-`SKIP_EMBER=1`.
-
-This can be useful when an application's frontend is developed locally with
-EmberCLI-Rails, but deployed separately (for example, with
-[ember-cli-deploy][ember-cli-deploy]).
-
-[ember-cli-deploy]: https://github.com/ember-cli/ember-cli-deploy
-
-#### Ember Dependencies
-
-Ember has several dependencies. Some of these dependencies might already be
-present in your asset list. For example jQuery is bundled in `jquery-rails` gem.
-If you have the jQuery assets included on your page you may want to exclude them
-from the Ember distribution. You can do so by setting the `exclude_ember_deps`
-option like so:
-
-```ruby
-EmberCli.configure do |c|
-  c.app :frontend, exclude_ember_deps: "jquery"
-  c.app :admin_panel, exclude_ember_deps: ["jquery", "handlebars"]
-end
-```
-
-jQuery and Handlebars are the main use cases for this flag.
-
 ## Ruby and Rails support
 
 This project supports:
 
 * Ruby versions `>= 2.1.0`
-* Rails versions `3.2.x` and `>=4.1.x`.
-
-[Rendering EmberCLI-generated assets through Sprockets](asset-helpers) is
-**NOT** supported for Rails `3.2.x`.
+* Rails versions `>=4.1.x`.
 
 To learn more about supported versions and upgrades, read the [upgrading guide].
 
-[asset-helpers]: #rendering-the-embercli-generated-js-and-css
 [upgrading guide]: /UPGRADING.md
 
 ## Contributing

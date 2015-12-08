@@ -33,10 +33,6 @@ module EmberCli
     end
 
     def install
-      if paths.gemfile.exist?
-        exec "#{paths.bundler} install"
-      end
-
       exec "#{paths.npm} prune && #{paths.npm} install"
       exec "#{paths.bower} prune && #{paths.bower} install"
     end
